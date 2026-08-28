@@ -206,6 +206,32 @@ section h3 {
   line-height: 1.4;
 }
 
+.shared-activity-highlight {
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 3px rgba(83, 75, 174, 0.18);
+}
+
+.activity-share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.share-button {
+  flex: 1;
+  min-width: 90px;
+  background-color: var(--background);
+  color: var(--primary);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+}
+
+.share-button:hover {
+  background-color: var(--primary-light);
+  color: var(--primary-text);
+}
+
 .activity-card-actions {
   margin-top: auto;
   padding-top: 10px;
