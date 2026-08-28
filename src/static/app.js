@@ -43,6 +43,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Authentication state
   let currentUser = null;
+  const sharedActivityName =
+    new URLSearchParams(window.location.search).get("activity") || "";
+  let hasHighlightedSharedActivity = false;
 
   // Time range mappings for the dropdown
   const timeRanges = {
@@ -304,6 +307,101 @@ document.addEventListener("DOMContentLoaded", () => {
     return details.schedule;
   }
 
+  function buildShareUrl(activityName) {
+    const shareUrl = new URL(window.location.origin + window.location.pathname);
+    shareUrl.searchParams.set("activity", activityName);
+    return shareUrl.toString();
+  }
+
+  function buildShareText(activityName, details) {
+    return `Check out ${activityName} at Mergington High School! ${formatSchedule(
+      details
+    )}. ${details.description}`;
+  }
+
+  async function copyTextToClipboard(text) {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.setAttribute("readonly", "");
+    textArea.style.position = "absolute";
+    textArea.style.left = "-9999px";
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textArea);
+  }
+
+  async function handleShareAction(event) {
+    const button = event.currentTarget;
+    const activityName = button.dataset.activity;
+    const shareType = button.dataset.shareType;
+    const details = allActivities[activityName];
+
+    if (!details) {
+      showMessage("This activity could not be shared right now.", "error");
+      return;
+    }
+
+    const shareUrl = buildShareUrl(activityName);
+    const shareText = buildShareText(activityName, details);
+
+    try {
+      if (shareType === "email") {
+        const subject = encodeURIComponent(
+          `Join me at ${activityName}`
+        );
+        const body = encodeURIComponent(`${shareText}\n\n${shareUrl}`);
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+        return;
+      }
+
+      if (shareType === "copy") {
+        await copyTextToClipboard(shareUrl);
+        showMessage("Share link copied.", "success");
+        return;
+      }
+
+      if (navigator.share) {
+        await navigator.share({
+          title: activityName,
+          text: shareText,
+          url: shareUrl,
+        });
+        return;
+      }
+
+      await copyTextToClipboard(shareUrl);
+      showMessage("Share link copied.", "success");
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        showMessage("Sharing failed. Please try again.", "error");
+        console.error("Error sharing activity:", error);
+      }
+    }
+  }
+
+  function maybeHighlightSharedActivity(activityCard, activityName) {
+    if (
+      !sharedActivityName ||
+      hasHighlightedSharedActivity ||
+      sharedActivityName !== activityName
+    ) {
+      return;
+    }
+
+    activityCard.classList.add("shared-activity-highlight");
+    hasHighlightedSharedActivity = true;
+
+    requestAnimationFrame(() => {
+      activityCard.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
   // Function to determine activity type (this would ideally come from backend)
   function getActivityType(activityName, description) {
     const name = activityName.toLowerCase();
@@ -552,6 +650,17 @@ document.addEventListener("DOMContentLoaded", () => {
             .join("")}
         </ul>
       </div>
+      <div class="activity-share-actions">
+        <button class="share-button" data-activity="${name}" data-share-type="native">
+          Share
+        </button>
+        <button class="share-button" data-activity="${name}" data-share-type="email">
+          Email
+        </button>
+        <button class="share-button" data-activity="${name}" data-share-type="copy">
+          Copy Link
+        </button>
+      </div>
       <div class="activity-card-actions">
         ${
           currentUser
@@ -577,6 +686,11 @@ document.addEventListener("DOMContentLoaded", () => {
       button.addEventListener("click", handleUnregister);
     });
 
+    const shareButtons = activityCard.querySelectorAll(".share-button");
+    shareButtons.forEach((button) => {
+      button.addEventListener("click", handleShareAction);
+    });
+
     // Add click handler for register button (only when authenticated)
     if (currentUser) {
       const registerButton = activityCard.querySelector(".register-button");
@@ -587,6 +701,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    maybeHighlightSharedActivity(activityCard, name);
     activitiesList.appendChild(activityCard);
   }
 
